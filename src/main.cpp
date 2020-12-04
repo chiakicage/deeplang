@@ -1,12 +1,17 @@
-#include "codegen/codegen.h"
-#include "parsing/parsing.h"
-
 #include "antlr_runtime/antlr4-runtime.h"
 #include "wabt/src/option-parser.h"
+
+#include "codegen/codegen.h"
+#include "parsing/parsing.h"
+#include "vm/vm_interface.h"
+#include "utils/error-formatter.h"
+
 #include <fstream>
 #include <iostream>
 
-// using namespace antlr4;
+//using namespace antlr4;
+using namespace dp;
+using namespace dp::internal;
 using namespace wabt;
 
 static std::string s_infile;
@@ -56,26 +61,38 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	dp::internal::Parser*    parser = new dp::internal::Parser();
+	Parser*                  parser = new Parser();
 	antlr4::ANTLRInputStream input(infile);
-	auto                     module = parser->parseModule(input);
+	input.name = s_infile;
 
+	auto module = parser->parseModule(input);
+
+	if (!module) {
+		return -1;
+	}
+
+    std::cout << "Parsing Ended Successfully!" << std::endl;
 	if (!s_outfile.size())
-		s_outfile = "a.wasm";
+		s_outfile = "a.wat";
 
-	dp::internal::CodeGen::generateWasm(module, s_outfile);
-	// DLLexer lexer(&input);
-	// CommonTokenStream tokens(&lexer);
+	Errors               errors;
+	auto result = CodeGen::GenerateWasmToFile(module, s_outfile, errors);
+	if (!result) {
+		auto mesg = FormatErrorsToString(errors);
+		std::cout << mesg;
+		return -1;
+	}
 
-	// tokens.fill();
-	// for (auto token : tokens.getTokens()) {
-	//   std::cout << token->toString() << std::endl;
-	// }
-
-	// DLParser parser(&tokens);
-	// tree::ParseTree *tree = parser.program();
-
-	// std::cout << tree->toStringTree(&parser) << std::endl;
-
-	return 0;
+	std::vector<uint8_t> buffer;
+	result = CodeGen::GenerateWasm(module, buffer, errors);
+	if (!result) {
+		auto mesg = FormatErrorsToString(errors);
+		std::cout << mesg;
+		return -1;
+	}
+	
+	if (deep_wasm_vm_init() != 0) {
+		return -1;
+	}
+	return deep_wasm_eval((uint8*) buffer.data(), (uint32) buffer.size());
 }

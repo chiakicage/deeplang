@@ -77,8 +77,8 @@ tokens {
 
 // Operators
 //
-ASSIGN_OPERATOR:           '==';
-EQUAL_OPERATOR:            '=';
+ASSIGN_OPERATOR:           '=';
+EQUAL_OPERATOR:            '==';
 GREATER_OR_EQUAL_OPERATOR: '>=';
 GREATER_THAN_OPERATOR:     '>';
 LESS_OR_EQUAL_OPERATOR:    '<=';
@@ -173,11 +173,12 @@ fragment Z: [zZ];
 fragment NONZERODIGIT:  [1-9];
 fragment DIGIT:    [0-9];
 fragment DIGITS:   DIGIT+;
+fragment ZERO: [0];
 //fragment HEXDIGIT: [0-9a-fA-F];
 
 CONST:     INTEGERCONST;
 
-INTEGERCONST: NONZERODIGIT | (NONZERODIGIT DIGITS);
+INTEGERCONST: ZERO | NONZERODIGIT | (NONZERODIGIT DIGITS);
 
 // Only lower case 'x' and 'b' count for hex + bin numbers. Otherwise it's an identifier.
 //HEX_NUMBER: ('0x' HEXDIGIT+) | ('x\'' HEXDIGIT+ '\'');
@@ -286,9 +287,15 @@ fragment DOUBLE_QUOTE: '"';
 //    )+
 //;
 
-// TODO: right?
 QUOTED_STRING:
-        DOUBLE_QUOTE LETTER_WHEN_UNQUOTED+ DOUBLE_QUOTE
+        DOUBLE_QUOTE .*? DOUBLE_QUOTE
+;
+
+SINGLE_COMMENT:
+     '//' ~[\r\n]* '\r'? '\n' -> skip
+;
+MULTI_COMMENT: 
+     '/*'  .*?  '*/' -> skip
 ;
 
 // There are 3 types of block comments:

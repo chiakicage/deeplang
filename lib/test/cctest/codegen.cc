@@ -1,8 +1,9 @@
-#include "codegen/codegen.h"
-
-#include "ast/ast.h"
-
 #include "gtest/gtest.h"
+#define  AST_AST_H
+#include "astIncludeBy.h"
+#define GEN_CODE_H
+#include "genIncludeBy.h"
+
 
 using namespace dp;
 using namespace dp::internal;
@@ -18,7 +19,7 @@ TEST(testCase, codegen) {
 	auto mainFuncBody = std::make_unique<BlockExpession>();
 
 	auto var1Decl     = std::make_unique<VariableDeclaration>("var");
-	var1Decl->vartype = std::make_unique<VariableType>(PrimitiveVariableTypes::I32);
+	var1Decl->vartype = std::make_unique<PrimitiveType>(PrimitiveType::Kind::I32);
 
 	auto addExp   = std::make_unique<BinaryExpression>(BinaryOperator::Plus);
 	addExp->left  = std::make_unique<LiteralExpression>(1);

@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
-#include "ast/ast.h"
-#include "parsing/parsing.h"
+#define  AST_AST_H
+#define AST_PARSING_H
+#include "astIncludeBy.h"
 
 TEST(testCase, ast){
     dp::internal::Declaration decl(

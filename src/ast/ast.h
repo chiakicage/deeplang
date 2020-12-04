@@ -7,22 +7,14 @@
 namespace dp {
 namespace internal {
 
-struct Location {
-	std::string  fileName;
-	unsigned int line;
-	unsigned int firstColumn;
-	unsigned int lastColumn;
-};
-
 class ASTNode {
 public:
 	ASTNode(const Location& loc = Location())
 			: loc(loc) {
 	}
-	~ASTNode() {
-	}
+
 	std::string toString() const;
-	Location loc;
+	Location    loc;
 };
 
 class Identifier {
@@ -32,8 +24,7 @@ public:
 	Identifier(const std::string& name)
 			: name(name) {
 	}
-	~Identifier() {
-	}
+
 	std::string toString() const {
 		return "Identifier";
 	}
@@ -50,8 +41,6 @@ public:
 	Module(std::string name, const Location& loc = Location())
 			: ASTNode(loc), id(name) {
 	}
-	~Module() {
-	}
 
 	std::string toString() const {
 		return "Module";
@@ -66,9 +55,16 @@ typedef std::unique_ptr<Module> ModulePtr;
 // Statement
 
 enum class StatementKind {
-	VariableDeclaration,
-	FunctionDeclaration,
-	Expression
+	// local(let) binding
+	Local,
+	// Function definition
+	Function,
+	// Expression without trailing semi-colon
+	Expression,
+	// Expression with trailing semi-colon
+	SemiExpression,
+	// Just a trailing semi-colon
+	Empty
 };
 
 class Statement : public ASTNode {
@@ -125,42 +121,78 @@ public:
 	ExpressionPtr expr;
 };
 
-class VariableDeclaration : public StatementMixin<StatementKind::VariableDeclaration> {
+class SemiExpressionStatement : public StatementMixin<StatementKind::SemiExpression> {
 public:
-	VariableDeclaration(std::string name, const Location& loc = Location())
-			: StatementMixin<StatementKind::VariableDeclaration>(loc), id(name) {
-	}
-	~VariableDeclaration() {
+	SemiExpressionStatement(const Location& loc = Location())
+			: StatementMixin<StatementKind::SemiExpression>(loc) {
 	}
 
 	std::string toString() const {
-		return "VariableDeclaration";
+		return "SemiExpressionStatement";
 	}
 
+	ExpressionPtr expr;
+};
+
+class EmptyStatement : public StatementMixin<StatementKind::Empty> {
+public:
+	EmptyStatement(const Location& loc = Location())
+			: StatementMixin<StatementKind::Empty>(loc) {
+	}
+
+	std::string toString() const {
+		return "EmptyStatement";
+	}
+
+	ExpressionPtr expr;
+};
+
+class LocalStatement : public StatementMixin<StatementKind::Local> {
+public:
+	LocalStatement(std::string name, const Location& loc = Location())
+			: StatementMixin<StatementKind::Local>(loc), id(name), typ(nullptr) {
+	}
+
+	std::string toString() const {
+		return "LocalStatement";
+	}
 
 	Identifier                  id;
-	std::unique_ptr<Type>       vartype;
+	Type*                       typ;
 	std::unique_ptr<Expression> init;
 };
 
-class BlockExpession;
+class BlockExpression;
 
-class FunctionDeclaration : public StatementMixin<StatementKind::FunctionDeclaration> {
+class Param {
 public:
-	FunctionDeclaration(std::string name, const Location& loc = Location())
-			: StatementMixin<StatementKind::FunctionDeclaration>(loc), id(name), isPublic(true) {
+	Param(Identifier id)
+			: id(id), typ(nullptr) {
 	}
-	~FunctionDeclaration() {
+	Identifier id;
+	Type*      typ;
+};
+
+typedef std::vector<Param> ParamVector;
+
+class FunctionStatement : public StatementMixin<StatementKind::Function> {
+public:
+	FunctionStatement(std::string name, const Location& loc = Location())
+			: StatementMixin<StatementKind::Function>(loc),
+				id(name),
+				typ(nullptr),
+				isPublic(false) {
 	}
 
 	std::string toString() const {
-		return "FunctionDeclaration";
+		return "FunctionStatement";
 	}
 
-	Identifier                      id;
-	std::unique_ptr<FunctionType>   signature;
-	std::unique_ptr<ExpressionStatement> body;
-	bool                            isPublic;
+	Identifier                       id;
+	FunctionType*                    typ;
+	std::unique_ptr<BlockExpression> body;
+	ParamVector                      params;
+	bool                             isPublic;
 };
 
 // Expression
@@ -169,12 +201,19 @@ enum class ExpressionKind {
 	Array,
 	Binary,
 	Block,
+	Break,
 	Call,
+	Continue,
+	For,
+	If,
 	Literal,
+	Match,
 	New,
 	Path,
+	Return,
 	Unary,
 	Update,
+	While,
 };
 
 class Expression : public ASTNode {
@@ -212,7 +251,6 @@ public:
 	std::string toString() const {
 		return "ExpressionMixin";
 	}
-
 };
 
 enum class BinaryOperator {
@@ -222,6 +260,12 @@ enum class BinaryOperator {
 	Div,
 	BitwiseAnd,
 	BitwiseOr,
+	Eq,
+	Neq,
+	GT,
+	GE,
+	LT,
+	LE,
 };
 
 class BinaryExpression : public ExpressionMixin<ExpressionKind::Binary> {
@@ -249,29 +293,27 @@ public:
 		return "CallExpression";
 	}
 
-	ExpressionPtr  receiver;
-	ExpressionPtr  method;
+	ExpressionPtr    receiver;
+	ExpressionPtr    method;
 	ExpressionVector params;
-	
 };
-
 
 class LiteralExpression : public ExpressionMixin<ExpressionKind::Literal> {
 public:
 	LiteralExpression(int32_t value, const Location& loc = Location())
-			: ExpressionMixin<ExpressionKind::Literal>(loc), i32val(value), typ(LiteralExpression::Typ::DPI32) {
+			: ExpressionMixin<ExpressionKind::Literal>(loc), i32val(value), typ(LiteralExpression::Typ::I32) {
 	}
 
 	LiteralExpression(std::string value, const Location& loc = Location())
-			: ExpressionMixin<ExpressionKind::Literal>(loc), strval(value), typ(LiteralExpression::Typ::DPString) {
+			: ExpressionMixin<ExpressionKind::Literal>(loc), strval(value), typ(LiteralExpression::Typ::String) {
 	}
 
 	LiteralExpression(int64_t value, const Location& loc = Location())
-			: ExpressionMixin<ExpressionKind::Literal>(loc), i64val(value), typ(LiteralExpression::Typ::DPI64) {
+			: ExpressionMixin<ExpressionKind::Literal>(loc), i64val(value), typ(LiteralExpression::Typ::I64) {
 	}
 
 	LiteralExpression(double value, const Location& loc = Location())
-			: ExpressionMixin<ExpressionKind::Literal>(loc), f64val(value), typ(LiteralExpression::Typ::DPF64) {
+			: ExpressionMixin<ExpressionKind::Literal>(loc), f64val(value), typ(LiteralExpression::Typ::F64) {
 	}
 
 	~LiteralExpression() {
@@ -281,12 +323,12 @@ public:
 		return "LiteralExpression";
 	}
 
-	enum class Typ {
-		DPI32,
-		DPI64,
-		DPF64,
-		DPDouble,
-		DPString
+	enum Typ {
+		I32,
+		I64,
+		F32,
+		F64,
+		String
 	};
 
 	Typ typ;
@@ -313,17 +355,98 @@ public:
 	Identifier id;
 };
 
-class BlockExpession : public ExpressionMixin<ExpressionKind::Block> {
+class BlockExpression : public ExpressionMixin<ExpressionKind::Block> {
 public:
-	BlockExpession(const Location& loc = Location())
+	BlockExpression(const Location& loc = Location())
 			: ExpressionMixin<ExpressionKind::Block>(loc) {
 	}
 
 	std::string toString() const {
-		return "BlockExpession";
+		return "BlockExpression";
 	}
 
 	StatementVector stmts;
+};
+
+// Like Expression, but Bool type
+typedef Expression ConditionExpression;
+// BlockExpresson or IfExpression
+typedef Expression ElseExpression;
+
+class IfExpression : public ExpressionMixin<ExpressionKind::If> {
+public:
+	IfExpression(const Location& loc = Location())
+			: ExpressionMixin<ExpressionKind::If>(loc) {
+	}
+
+	std::string toString() const {
+		return "IfExpression";
+	}
+
+	std::unique_ptr<ConditionExpression> condition;
+	std::unique_ptr<BlockExpression>     then_branch;
+	std::unique_ptr<ElseExpression>      else_branch;
+};
+
+class WhileExpression : public ExpressionMixin<ExpressionKind::While> {
+	WhileExpression(const Location& loc = Location())
+			: ExpressionMixin<ExpressionKind::While>(loc) {
+	}
+
+	std::string toString() const {
+		return "WhileExpression";
+	}
+
+	std::unique_ptr<ConditionExpression> condition;
+	std::unique_ptr<BlockExpression>     body;
+};
+
+// class ForExpression : public ExpressionMixin<ExpressionKind::For> {
+// 	ForExpression(const Location& loc = Location())
+// 			: ExpressionMixin<ExpressionKind::For>(loc) {
+// 	}
+
+// 	std::string toString() const {
+// 		return "ForExpression";
+// 	}
+
+// 	ExpressionPtr                   pattern;
+// 	ExpressionPtr                   range;
+// 	std::unique_ptr<BlockExpression> body;
+// };
+
+class BreakExpression : public ExpressionMixin<ExpressionKind::Break> {
+	BreakExpression(const Location& loc = Location())
+			: ExpressionMixin<ExpressionKind::Break>(loc) {
+	}
+
+	std::string toString() const {
+		return "BreakExpression";
+	}
+
+	ExpressionPtr value;
+};
+
+class ContinueExpression : public ExpressionMixin<ExpressionKind::Continue> {
+	ContinueExpression(const Location& loc = Location())
+			: ExpressionMixin<ExpressionKind::Continue>(loc) {
+	}
+
+	std::string toString() const {
+		return "ContinueExpression";
+	}
+};
+
+class ReturnExpression : public ExpressionMixin<ExpressionKind::Return> {
+	ReturnExpression(const Location& loc = Location())
+			: ExpressionMixin<ExpressionKind::Return>(loc) {
+	}
+
+	std::string toString() const {
+		return "ReturnExpression";
+	}
+
+	ExpressionPtr value;
 };
 
 } // namespace internal

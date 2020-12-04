@@ -1,4 +1,4 @@
-sig main :: void -> void
-fun main () {
-    print ("hello world");
-};
+fun main () -> () {
+    let a : Unit = {};
+    return a;
+}

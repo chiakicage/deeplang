@@ -76,14 +76,6 @@ aryOp :
     | LOGICAL_OR_OPERATOR
 ;
 
-expressionList :
-    (expressionStatement (',' expressionStatement)*)?
-;
-
-expressionStatement :
-    blockExpression
-    | unblockExpression
-;
 
 blockExpression :
     OPEN_CURLY_SYMBOL statements CLOSE_CURLY_SYMBOL
@@ -93,47 +85,74 @@ blockExpression :
 unblockExpression :
     unblockExpression op=(MULT_OPERATOR | DIV_OPERATOR) unblockExpression
     | unblockExpression op=(PLUS_OPERATOR | MINUS_OPERATOR) unblockExpression
+    | unblockExpression op=(GREATER_THAN_OPERATOR | GREATER_OR_EQUAL_OPERATOR | LESS_THAN_OPERATOR | LESS_OR_EQUAL_OPERATOR) unblockExpression
+    | unblockExpression op=(EQUAL_OPERATOR | NOT_EQUAL_OPERATOR) unblockExpression
+    | unblockExpression OPEN_PAR_SYMBOL expressionList CLOSE_PAR_SYMBOL 
     | QUOTED_STRING
-    | unblockExpression OPEN_PAR_SYMBOL expressionList CLOSE_PAR_SYMBOL
     | CONST
     | IDENTIFIER
 ;
 
+ifExpression : 
+    IF_SYMBOL unblockExpression blockExpression elseExpression
+    | IF_SYMBOL unblockExpression blockExpression
+;
+elseExpression : 
+    ELSE_SYMBOL blockExpression
+    | ELSE_SYMBOL ifExpression
+;
+
+expressionList :
+    (expressionStmt (',' expressionStmt)*)?
+;
 
 
+semiexpressionStmt :
+    blockExpression SEMICOLON_SYMBOL
+    | ifExpression SEMICOLON_SYMBOL
+    | unblockExpression SEMICOLON_SYMBOL
+;
+
+expressionStmt :
+    blockExpression 
+    | ifExpression 
+    | unblockExpression 
+;
 
 tupleType :
     OPEN_PAR_SYMBOL CLOSE_PAR_SYMBOL
 ;
-
 type :
     tupleType
     | IDENTIFIER
 ;
-
-variableDecl :
-    LET_SYMBOL IDENTIFIER COLON_SYMBOL type
-    | LET_SYMBOL IDENTIFIER COLON_SYMBOL type EQUAL_OPERATOR expressionStatement
+localStmt :
+    LET_SYMBOL IDENTIFIER COLON_SYMBOL type SEMICOLON_SYMBOL
+    | LET_SYMBOL IDENTIFIER COLON_SYMBOL type ASSIGN_OPERATOR blockExpression SEMICOLON_SYMBOL
+    | LET_SYMBOL IDENTIFIER COLON_SYMBOL type ASSIGN_OPERATOR unblockExpression SEMICOLON_SYMBOL
+    | LET_SYMBOL IDENTIFIER COLON_SYMBOL type ASSIGN_OPERATOR ifExpression SEMICOLON_SYMBOL
 ;
 
-functionDecl :
-    FUN_SYMBOL IDENTIFIER OPEN_PAR_SYMBOL CLOSE_PAR_SYMBOL JSON_SEPARATOR_SYMBOL type blockExpression
+param :
+    IDENTIFIER COLON_SYMBOL type
 ;
-
-decl :
-    functionDecl
-    | variableDecl
+paramList :
+    (param (',' param)*)?
 ;
-
+functionStmt : 
+    FUN_SYMBOL IDENTIFIER OPEN_PAR_SYMBOL paramList CLOSE_PAR_SYMBOL JSON_SEPARATOR_SYMBOL type blockExpression
+;
 
 statement :
-    decl
-    | expressionStatement
+    localStmt
+    | functionStmt
+    | expressionStmt
+    | semiexpressionStmt
 ;
 
 statements :
-    statement SEMICOLON_SYMBOL
-    | statement SEMICOLON_SYMBOL statements
+    statement
+    | statement statements
 ;
 
 module :
